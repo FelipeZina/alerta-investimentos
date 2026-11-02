@@ -1,0 +1,49 @@
+name: Check
+
+on:
+  schedule:
+    # UTC. 13:00–20:45 UTC = 10:00–17:45 em Brasília, seg a sex.
+    - cron: "*/15 13-20 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Só mostrar os alertas, sem gravar nem enviar"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv sync --locked --no-dev
+
+      - name: Verificar cotações e enviar alertas
+        env:
+          BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALERT_THRESHOLD_PCT: ${{ vars.ALERT_THRESHOLD_PCT }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            uv run python -m alerta.check --dry-run
+          else
+            uv run python -m alerta.check
+          fi

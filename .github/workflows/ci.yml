@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: alerta
+          POSTGRES_PASSWORD: alerta
+          POSTGRES_DB: alerta_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U alerta"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://alerta:alerta@localhost:5432/alerta_test
+      TEST_DATABASE_URL: postgresql://alerta:alerta@localhost:5432/alerta_test
+      BRAPI_TOKEN: dummy
+      TELEGRAM_BOT_TOKEN: dummy
+      TELEGRAM_CHAT_ID: dummy
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv sync --locked
+
+      - name: Formatação (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Aplicar migrations no banco de teste
+        run: uv run python -m alerta.migrate
+
+      - name: Testes
+        run: uv run pytest -v
