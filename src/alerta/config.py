@@ -5,6 +5,7 @@ O pydantic-settings valida os tipos: se ALERT_THRESHOLD_PCT vier "abc", o app
 falha logo no início com uma mensagem clara, em vez de quebrar no meio.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str
     database_url: str
 
-    alert_threshold_pct: float = 3.0
+    alert_threshold_pct: Decimal = Decimal("3")
 
 
 @lru_cache
