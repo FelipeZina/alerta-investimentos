@@ -1,11 +1,13 @@
 """Cliente da API brapi.dev."""
 
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import httpx
 from pydantic import BaseModel, Field
+
+from alerta.models import B3_TZ
 
 BASE_URL = "https://brapi.dev/api"
 
@@ -16,10 +18,35 @@ class Quote(BaseModel):
     change_pct: Decimal = Field(alias="regularMarketChangePercent")
     prev_close: Decimal = Field(alias="regularMarketPreviousClose")
     market_time: datetime = Field(alias="regularMarketTime")
+    trade_date: date
 
 
 class BrapiError(Exception):
     pass
+
+
+def infer_trade_date(result: dict, today: date) -> date:
+    """Descobre a data do pregão a que a cotação se refere.
+
+    O regularMarketTime da brapi é o horário de atualização do dado, não do
+    pregão. Usamos os candles diários (range=5d):
+    - penúltimo candle fechou no prev_close -> o último candle é o pregão atual;
+    - último candle fechou no prev_close -> o candle de hoje ainda não existe,
+      então a cotação é de hoje.
+    """
+    candles = result.get("historicalDataPrice") or []
+    if not candles:
+        raise ValueError("resposta sem historicalDataPrice")
+
+    prev_close = Decimal(str(result["regularMarketPreviousClose"]))
+    last = candles[-1]
+    last_date = datetime.fromtimestamp(last["date"], B3_TZ).date()
+
+    if len(candles) >= 2 and Decimal(str(candles[-2]["close"])) == prev_close:
+        return last_date
+    if Decimal(str(last["close"])) == prev_close and last_date < today:
+        return today
+    return last_date
 
 
 class BrapiClient:
@@ -31,9 +58,10 @@ class BrapiClient:
             transport=httpx.HTTPTransport(retries=2),
         )
 
-    def get_quote(self, ticker: str) -> Quote:
+    def get_quote(self, ticker: str, today: date | None = None) -> Quote:
+        today = today or datetime.now(B3_TZ).date()
         try:
-            response = self._http.get(f"/quote/{ticker}")
+            response = self._http.get(f"/quote/{ticker}", params={"range": "5d", "interval": "1d"})
         except httpx.HTTPError as exc:
             raise BrapiError(f"{ticker}: falha de rede ({exc})") from exc
 
@@ -44,7 +72,12 @@ class BrapiClient:
         results = response.json().get("results") or []
         if not results:
             raise BrapiError(f"{ticker}: resposta sem resultados")
-        return Quote.model_validate(results[0])
+
+        result = results[0]
+        try:
+            return Quote.model_validate({**result, "trade_date": infer_trade_date(result, today)})
+        except (ValueError, KeyError) as exc:
+            raise BrapiError(f"{ticker}: resposta inesperada ({exc})") from exc
 
     def close(self) -> None:
         self._http.close()
