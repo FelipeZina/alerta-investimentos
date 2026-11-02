@@ -18,12 +18,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str
     database_url: str
 
-    tickers: str
     alert_threshold_pct: float = 3.0
-
-    @property
-    def ticker_list(self) -> list[str]:
-        return [t.strip().upper() for t in self.tickers.split(",") if t.strip()]
 
 
 @lru_cache

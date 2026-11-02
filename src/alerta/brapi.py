@@ -57,10 +57,16 @@ class BrapiClient:
 
 
 if __name__ == "__main__":
+    from alerta import db
     from alerta.config import get_settings
 
-    tickers = sys.argv[1:] or get_settings().ticker_list
-    with BrapiClient(get_settings().brapi_token) as client:
+    settings = get_settings()
+    tickers = sys.argv[1:]
+    if not tickers:
+        with db.connect(settings.database_url) as conn:
+            tickers = [p.ticker for p in db.get_positions(conn)]
+
+    with BrapiClient(settings.brapi_token) as client:
         for t in tickers:
             try:
                 print(client.get_quote(t))
