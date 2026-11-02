@@ -12,7 +12,6 @@ import psycopg
 
 from alerta.config import get_settings
 
-# src/alerta/migrate.py -> sobe 3 níveis até a raiz do repositório
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
@@ -31,7 +30,6 @@ def main() -> None:
         applied = {row[0] for row in conn.execute("SELECT version FROM schema_migrations")}
         conn.commit()
 
-        # sorted() garante a ordem 001, 002, 003...
         pending = [f for f in sorted(MIGRATIONS_DIR.glob("*.sql")) if f.stem not in applied]
         if not pending:
             print("Banco já está atualizado.")
@@ -39,8 +37,6 @@ def main() -> None:
 
         for file in pending:
             print(f"Aplicando {file.name}...")
-            # Uma transação por arquivo: se algo falhar no meio, nada daquele
-            # arquivo fica pela metade no banco (rollback automático).
             with conn.transaction():
                 conn.execute(file.read_text())
                 conn.execute("INSERT INTO schema_migrations (version) VALUES (%s)", (file.stem,))
