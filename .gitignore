@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Segredos: NUNCA versionar o .env real
+.env
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
