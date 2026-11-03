@@ -13,3 +13,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Contexto local para o Claude Code (não versionado)
+CLAUDE.md

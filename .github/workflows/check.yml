@@ -2,8 +2,9 @@ name: Check
 
 on:
   schedule:
-    # UTC. 13:00–20:45 UTC = 10:00–17:45 em Brasília, seg a sex.
-    - cron: "*/15 13-20 * * 1-5"
+    # UTC. 13:07–20:52 UTC = 10:07–17:52 em Brasília, seg a sex.
+    # Minutos "quebrados" fogem do pico de agendamentos na virada da hora.
+    - cron: "7,22,37,52 13-20 * * 1-5"
   workflow_dispatch:
     inputs:
       dry_run:
